@@ -97,7 +97,6 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
 
   const adAccount = normalizeAdAccountId(brandCfg.adAccountId);
 
-  // Node 18'de Blob + FormData global geliyor
   const form = new FormData();
   form.append('access_token', accessToken);
   form.append('name', fileName);
@@ -176,12 +175,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { brand, type, sourceUrl, fileName } = req.body || {};
+    const {
+      brand,
+      type,
+      sourceType = 'url',
+      sourceUrl,
+      driveUrl,
+      fileName,
+      fileBase64,
+      fileMimeType,
+    } = req.body || {};
 
-    if (!brand || !type || !sourceUrl) {
+    if (!brand || !type) {
       return res.status(400).json({
         ok: false,
-        error: 'brand, type, sourceUrl zorunlu alanlar',
+        error: 'brand ve type zorunlu alanlar',
       });
     }
 
@@ -193,41 +201,77 @@ export default async function handler(req, res) {
       });
     }
 
+    if (type !== 'image' && type !== 'video') {
+      return res.status(400).json({
+        ok: false,
+        error: 'type "image" veya "video" olmalı',
+      });
+    }
+
+    // Kaynak tipine göre validasyon
+    if (sourceType === 'url' && !sourceUrl) {
+      return res.status(400).json({
+        ok: false,
+        error: 'sourceType=url ise sourceUrl zorunlu',
+      });
+    }
+    if (sourceType === 'drive' && !driveUrl) {
+      return res.status(400).json({
+        ok: false,
+        error: 'sourceType=drive ise driveUrl zorunlu',
+      });
+    }
+    if (sourceType === 'upload' && !fileBase64) {
+      return res.status(400).json({
+        ok: false,
+        error: 'sourceType=upload ise fileBase64 zorunlu',
+      });
+    }
+
+    let buffer;
+    let mimeType;
+    let usedSourceUrl = null;
+
+    if (sourceType === 'upload') {
+      // Frontend'den gelen base64'ü buffer'a çevir
+      buffer = Buffer.from(fileBase64, 'base64');
+      mimeType = fileMimeType || 'application/octet-stream';
+    } else {
+      usedSourceUrl = sourceType === 'drive' ? driveUrl : sourceUrl;
+      const downloaded = await downloadFileToBuffer(usedSourceUrl);
+      buffer = downloaded.buffer;
+      mimeType = downloaded.contentType;
+    }
+
     const safeFileName =
       fileName ||
-      `${brand}_${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`;
+      (sourceType === 'upload'
+        ? 'uploaded_' + Date.now()
+        : `${brand}_${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`);
 
-    // 1) Dosyayı indir
-    const { buffer, contentType } = await downloadFileToBuffer(sourceUrl);
-
-    // 2) Drive'a yükle
+    // 1) Drive'a yükle
     const driveFile = await uploadToDrive({
       buffer,
-      mimeType: contentType,
+      mimeType,
       fileName: safeFileName,
       folderId: brandCfg.driveFolderId,
     });
 
-    // 3) Meta'ya yükle
+    // 2) Meta'ya yükle
     let metaResult = null;
     if (type === 'image') {
       metaResult = await uploadImageToMeta({
         buffer,
-        mimeType: contentType,
-        fileName: safeFileName,
-        brandCfg,
-      });
-    } else if (type === 'video') {
-      metaResult = await uploadVideoToMeta({
-        buffer,
-        mimeType: contentType,
+        mimeType,
         fileName: safeFileName,
         brandCfg,
       });
     } else {
-      return res.status(400).json({
-        ok: false,
-        error: 'type "image" veya "video" olmalı',
+      metaResult = await uploadVideoToMeta({
+        buffer,
+        mimeType,
+        fileName: safeFileName,
+        brandCfg,
       });
     }
 
@@ -235,7 +279,8 @@ export default async function handler(req, res) {
       ok: true,
       brand,
       type,
-      sourceUrl,
+      sourceType,
+      sourceUrl: usedSourceUrl || null,
       fileName: safeFileName,
       driveFileId: driveFile.id,
       driveWebViewLink: driveFile.webViewLink,
