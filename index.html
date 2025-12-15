@@ -43,7 +43,8 @@
       font-size: 14px;
     }
     select,
-    input[type="text"] {
+    input[type="text"],
+    input[type="file"] {
       width: 100%;
       padding: 9px 10px;
       border-radius: 10px;
@@ -52,7 +53,8 @@
       box-sizing: border-box;
     }
     select:focus,
-    input[type="text"]:focus {
+    input[type="text"]:focus,
+    input[type="file"]:focus {
       outline: none;
       border-color: #6366f1;
       box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
@@ -68,6 +70,22 @@
       font-size: 12px;
       color: #9ca3af;
       margin-top: 4px;
+    }
+    .source-type-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .source-type-group label {
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .source-type-group input[type="radio"] {
+      transform: scale(1.1);
     }
     button {
       display: inline-flex;
@@ -113,11 +131,15 @@
       margin-top: 8px;
       font-size: 11px;
       color: #6b7280;
+      flex-wrap: wrap;
     }
     .tag {
       padding: 3px 8px;
       border-radius: 999px;
       border: 1px dashed #d4d4d8;
+    }
+    .hidden {
+      display: none;
     }
     @media (max-width: 600px) {
       .container {
@@ -137,8 +159,8 @@
   <div class="container">
     <h1>Creative Uploader</h1>
     <p class="subtitle">
-      DESA ve Bella Maison için görsel / video URL’sini gir, hem Meta’ya yükleyelim
-      hem de Google Drive’da markaya özel klasöre kopyasını alalım.
+      DESA ve Bella Maison için görsel / video URL’si gir ya da bilgisayarından / Google Drive’dan dosya seç;
+      hem Meta’ya yükleyelim hem de Google Drive’da markaya özel klasöre kopyasını alalım.
     </p>
 
     <form id="uploadForm">
@@ -162,16 +184,65 @@
       </div>
 
       <div class="field">
+        <label>Kaynak türü</label>
+        <div class="source-type-group">
+          <label>
+            <input type="radio" name="sourceType" value="url" checked />
+            URL'den getir
+          </label>
+          <label>
+            <input type="radio" name="sourceType" value="upload" />
+            Bilgisayardan yükle
+          </label>
+          <label>
+            <input type="radio" name="sourceType" value="drive" />
+            Google Drive URL
+          </label>
+        </div>
+        <div class="helper">
+          Drive seçeneğinde paylaşıma açık bir dosya linki (share link) kullanmalısın.
+        </div>
+      </div>
+
+      <!-- URL alanı -->
+      <div class="field" id="field-source-url">
         <label for="sourceUrl">Kaynak URL</label>
         <input
           type="text"
           id="sourceUrl"
           name="sourceUrl"
           placeholder="https://cdn.siten.com/path/to/file.jpg"
-          required
         />
         <div class="helper">
           CDN / web site URL’si. Backend bu dosyayı indirip hem Meta’ya hem Drive’a gönderecek.
+        </div>
+      </div>
+
+      <!-- Bilgisayardan upload alanı -->
+      <div class="field hidden" id="field-file-upload">
+        <label for="fileInput">Bilgisayardan dosya seç</label>
+        <input
+          type="file"
+          id="fileInput"
+          name="fileInput"
+          accept="image/*,video/*"
+        />
+        <div class="helper">
+          Görsel veya video dosyası seçebilirsin. Boyutu çok büyük dosyalarda ilk etapta test amaçlı daha küçük dosya kullanman daha sağlıklı olur.
+        </div>
+      </div>
+
+      <!-- Google Drive URL alanı -->
+      <div class="field hidden" id="field-drive-url">
+        <label for="driveUrl">Google Drive URL</label>
+        <input
+          type="text"
+          id="driveUrl"
+          name="driveUrl"
+          placeholder="https://drive.google.com/file/d/..."
+        />
+        <div class="helper">
+          Paylaşıma açık bir Google Drive dosya linki gir. Backend bu URL üzerinden indirip işlem yapar.
         </div>
       </div>
 
@@ -184,7 +255,11 @@
           placeholder="BM_SS24_Look1_Story.jpg"
         />
         <div class="helper">
-          Boş bırakırsan backend otomatik isim üretir (<code>brand_timestamp.ext</code>).
+          Boş bırakırsan:
+          <ul style="margin: 4px 0 0 16px; padding-left: 0; font-size: 12px; color:#9ca3af;">
+            <li>URL / Drive için: <code>brand_timestamp.ext</code></li>
+            <li>Bilgisayar yüklemesinde: Seçtiğin dosya adını kullanır.</li>
+          </ul>
         </div>
       </div>
 
@@ -193,6 +268,7 @@
       <div class="tag-row">
         <div class="tag">Meta Ads API</div>
         <div class="tag">Google Drive API</div>
+        <div class="tag">URL / Local / Drive</div>
         <div class="tag">DESA / Bella Maison</div>
       </div>
 
@@ -207,6 +283,40 @@
     const resultEl = document.getElementById('result');
     const submitBtn = document.getElementById('submitBtn');
 
+    const fieldSourceUrl = document.getElementById('field-source-url');
+    const fieldFileUpload = document.getElementById('field-file-upload');
+    const fieldDriveUrl = document.getElementById('field-drive-url');
+    const fileInput = document.getElementById('fileInput');
+
+    function getSourceType() {
+      const checked = document.querySelector('input[name="sourceType"]:checked');
+      return checked ? checked.value : 'url';
+    }
+
+    function updateSourceFields() {
+      const sourceType = getSourceType();
+      fieldSourceUrl.classList.toggle('hidden', sourceType !== 'url');
+      fieldFileUpload.classList.toggle('hidden', sourceType !== 'upload');
+      fieldDriveUrl.classList.toggle('hidden', sourceType !== 'drive');
+    }
+
+    document.querySelectorAll('input[name="sourceType"]').forEach((el) => {
+      el.addEventListener('change', updateSourceFields);
+    });
+    updateSourceFields();
+
+    async function callApi(payload) {
+      const res = await fetch('/api/upload-creative', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      return { res, json };
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       statusEl.textContent = '';
@@ -216,11 +326,24 @@
 
       const brand = document.getElementById('brand').value;
       const type = document.getElementById('type').value;
+      const sourceType = getSourceType();
       const sourceUrl = document.getElementById('sourceUrl').value.trim();
-      const fileName = document.getElementById('fileName').value.trim();
+      const driveUrl = document.getElementById('driveUrl').value.trim();
+      const fileNameInput = document.getElementById('fileName').value.trim();
 
-      if (!sourceUrl) {
+      // Basit validasyon
+      if (sourceType === 'url' && !sourceUrl) {
         statusEl.textContent = 'Lütfen geçerli bir kaynak URL gir.';
+        statusEl.classList.add('error');
+        return;
+      }
+      if (sourceType === 'drive' && !driveUrl) {
+        statusEl.textContent = 'Lütfen geçerli bir Google Drive URL gir.';
+        statusEl.classList.add('error');
+        return;
+      }
+      if (sourceType === 'upload' && (!fileInput.files || fileInput.files.length === 0)) {
+        statusEl.textContent = 'Lütfen bilgisayarından bir dosya seç.';
         statusEl.classList.add('error');
         return;
       }
@@ -229,33 +352,85 @@
       submitBtn.textContent = 'Yükleniyor...';
 
       try {
-        const payload = { brand, type, sourceUrl };
-        if (fileName) payload.fileName = fileName;
+        if (sourceType === 'upload') {
+          const file = fileInput.files[0];
 
-        const res = await fetch('/api/upload-creative', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+          // Dosyayı base64'e çevir
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const result = reader.result; // "data:<mime>;base64,xxxx"
+              const [meta, base64] = result.split(',');
+              const fileMimeType = file.type || 'application/octet-stream';
+              const finalFileName = fileNameInput || file.name || `${brand}_${Date.now()}`;
 
-        const json = await res.json();
+              const payload = {
+                brand,
+                type,
+                sourceType,
+                // upload olduğu için URL yok, sadece info için ekleyebiliriz
+                fileName: finalFileName,
+                fileBase64: base64,
+                fileMimeType,
+              };
 
-        if (!res.ok || !json.ok) {
-          statusEl.textContent =
-            'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
-          statusEl.classList.add('error');
+              const { res, json } = await callApi(payload);
+
+              if (!res.ok || !json.ok) {
+                statusEl.textContent =
+                  'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
+                statusEl.classList.add('error');
+              } else {
+                statusEl.textContent = 'Yükleme başarılı ✔️';
+                statusEl.classList.add('ok');
+                resultEl.style.display = 'block';
+                resultEl.textContent = JSON.stringify(json, null, 2);
+              }
+            } catch (err) {
+              statusEl.textContent = 'Beklenmeyen hata: ' + err.message;
+              statusEl.classList.add('error');
+            } finally {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Yüklemeyi Başlat';
+            }
+          };
+          reader.onerror = () => {
+            statusEl.textContent = 'Dosya okunurken hata oluştu.';
+            statusEl.classList.add('error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Yüklemeyi Başlat';
+          };
+          reader.readAsDataURL(file);
         } else {
-          statusEl.textContent = 'Yükleme başarılı ✔️';
-          statusEl.classList.add('ok');
-          resultEl.style.display = 'block';
-          resultEl.textContent = JSON.stringify(json, null, 2);
+          // URL veya Drive URL senaryosu
+          const payload = {
+            brand,
+            type,
+            sourceType,
+          };
+          if (fileNameInput) payload.fileName = fileNameInput;
+          if (sourceType === 'url') payload.sourceUrl = sourceUrl;
+          if (sourceType === 'drive') payload.driveUrl = driveUrl;
+
+          const { res, json } = await callApi(payload);
+
+          if (!res.ok || !json.ok) {
+            statusEl.textContent =
+              'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
+            statusEl.classList.add('error');
+          } else {
+            statusEl.textContent = 'Yükleme başarılı ✔️';
+            statusEl.classList.add('ok');
+            resultEl.style.display = 'block';
+            resultEl.textContent = JSON.stringify(json, null, 2);
+          }
+
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Yüklemeyi Başlat';
         }
       } catch (err) {
         statusEl.textContent = 'Beklenmeyen hata: ' + err.message;
         statusEl.classList.add('error');
-      } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Yüklemeyi Başlat';
       }
