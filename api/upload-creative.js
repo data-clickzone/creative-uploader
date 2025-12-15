@@ -1,46 +1,39 @@
 // api/upload-creative.js
 import { google } from "googleapis";
-import fs from "fs";
 import FormData from "form-data";
 
-// Marka bazlı config – senin .env ile uyumlu olmalı
+// küçük debug için versiyon
+const API_VERSION = "v3";
+
+// Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
   desa: {
-    adAccountId: process.env.DESA_META_AD_ACCOUNT_ID, // act_1171... şeklinde
+    adAccountId: process.env.DESA_META_AD_ACCOUNT_ID, // act_1171... olabilir
     accessToken: process.env.DESA_META_ACCESS_TOKEN,
     driveFolderId: process.env.DESA_DRIVE_FOLDER_ID,
   },
   bella: {
-    adAccountId: process.env.BELLA_META_AD_ACCOUNT_ID, // act_1073... şeklinde
+    adAccountId: process.env.BELLA_META_AD_ACCOUNT_ID, // act_1073...
     accessToken: process.env.BELLA_META_ACCESS_TOKEN,
     driveFolderId: process.env.BELLA_DRIVE_FOLDER_ID,
   },
 };
 
 /**
- * Google Service Account bilgilerini getir
- * - Tercihen: GOOGLE_SERVICE_ACCOUNT_JSON (JSON string)
- * - Alternatif: GOOGLE_CREDENTIALS_FILE (sunucuda dosya yolu)
+ * Google Service Account bilgilerini env'den al
+ * Vercel için en temiz yöntem → GOOGLE_SERVICE_ACCOUNT_JSON
  */
 function getServiceAccountCredentials() {
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    throw new Error(
+      "GOOGLE_SERVICE_ACCOUNT_JSON tanımlı değil. Service account JSON'unu bu env'e yapıştır."
+    );
   }
-
-  if (process.env.GOOGLE_CREDENTIALS_FILE) {
-    const filePath = process.env.GOOGLE_CREDENTIALS_FILE;
-    const raw = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(raw);
-  }
-
-  throw new Error(
-    "Google service account bulunamadı. GOOGLE_SERVICE_ACCOUNT_JSON veya GOOGLE_CREDENTIALS_FILE ayarla."
-  );
+  return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
 }
 
 function getDriveClient() {
   const creds = getServiceAccountCredentials();
-
   const scopes = ["https://www.googleapis.com/auth/drive"];
 
   const auth = new google.auth.JWT(
@@ -50,12 +43,11 @@ function getDriveClient() {
     scopes
   );
 
-  const drive = google.drive({ version: "v3", auth });
-  return drive;
+  return google.drive({ version: "v3", auth });
 }
 
 /**
- * URL'den dosya indirip Buffer + content-type dön
+ * URL'den dosya indirip Buffer + content-type döner
  */
 async function downloadFileToBuffer(url) {
   const res = await fetch(url);
@@ -70,7 +62,7 @@ async function downloadFileToBuffer(url) {
 }
 
 /**
- * Google Drive'a yükle
+ * Google Drive'a upload
  */
 async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
   const drive = getDriveClient();
@@ -82,7 +74,7 @@ async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
     },
     media: {
       mimeType,
-      body: Buffer.from(buffer),
+      body: buffer, // Buffer direkt verilebilir
     },
     fields: "id, webViewLink, webContentLink",
   });
@@ -91,8 +83,7 @@ async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
 }
 
 /**
- * Ad account ID'yi normalize et
- * - "act_..." şeklinde değilse başına act_ ekle
+ * Ad account ID'yi normalize et – "act_" yoksa ekler
  */
 function normalizeAdAccountId(rawId) {
   if (!rawId) {
@@ -103,7 +94,7 @@ function normalizeAdAccountId(rawId) {
 }
 
 /**
- * Meta'ya image upload (adimages) – form-data ile (pipe hatası yok)
+ * Meta'ya image upload (adimages) – form-data ile
  */
 async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
@@ -122,7 +113,6 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   });
 
   const headers = form.getHeaders();
-
   const url = `https://graph.facebook.com/v21.0/${adAccount}/adimages`;
 
   const res = await fetch(url, {
@@ -169,7 +159,6 @@ async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   });
 
   const headers = form.getHeaders();
-
   const url = `https://graph.facebook.com/v21.0/${adAccount}/advideos`;
 
   const res = await fetch(url, {
@@ -194,6 +183,15 @@ async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
 
 /**
  * Ana handler – URL / upload / Drive senaryolarını yönetiyor
+ * body:
+ *  brand: "bella" | "desa"
+ *  type: "image" | "video"
+ *  sourceType: "url" | "upload" | "drive"
+ *  sourceUrl?: string
+ *  driveUrl?: string
+ *  fileName?: string
+ *  fileBase64?: string   (upload senaryosu)
+ *  fileMimeType?: string
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -204,7 +202,7 @@ export default async function handler(req, res) {
     const {
       brand,
       type,
-      sourceType = "url", // "url" | "upload" | "drive"
+      sourceType = "url",
       sourceUrl,
       driveUrl,
       fileName,
@@ -223,7 +221,7 @@ export default async function handler(req, res) {
     if (!brandCfg) {
       return res.status(400).json({
         ok: false,
-        error: 'Geçersiz brand. Örnek: "desa" veya "bella"',
+        error: 'Geçersiz brand. "desa" veya "bella" olmalı',
       });
     }
 
@@ -234,7 +232,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Kaynak tipine göre temel validasyon
+    // Kaynak tipine göre validasyon
     if (sourceType === "url" && !sourceUrl) {
       return res.status(400).json({
         ok: false,
@@ -259,7 +257,7 @@ export default async function handler(req, res) {
     let usedSourceUrl = null;
 
     if (sourceType === "upload") {
-      // Frontend'den gelen base64 payload → Buffer
+      // Frontend'den gelen base64 → Buffer
       buffer = Buffer.from(fileBase64, "base64");
       mimeType = fileMimeType || "application/octet-stream";
     } else {
@@ -303,6 +301,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      version: API_VERSION,
       brand,
       type,
       sourceType,
@@ -317,6 +316,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       ok: false,
       error: err.message || "Bilinmeyen hata",
+      version: API_VERSION,
     });
   }
 }
