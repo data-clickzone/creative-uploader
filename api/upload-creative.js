@@ -37,7 +37,7 @@ function getDriveClient() {
   const oauth2Client = new google.auth.OAuth2(
     clientId,
     clientSecret,
-    "http://localhost" // runtime'da önemli değil; refresh token ile çalışıyoruz
+    "http://localhost"
   );
 
   oauth2Client.setCredentials({ refresh_token: refreshToken });
