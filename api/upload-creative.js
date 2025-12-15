@@ -2,18 +2,19 @@
 import { google } from "googleapis";
 import FormData from "form-data";
 import axios from "axios";
+import { Readable } from "stream";
 
-const API_VERSION = "v4";
+const API_VERSION = "v5";
 
 // Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
   desa: {
-    adAccountId: process.env.DESA_META_AD_ACCOUNT_ID, // act_1171... olabilir
+    adAccountId: process.env.DESA_META_AD_ACCOUNT_ID, // act_... olabilir
     accessToken: process.env.DESA_META_ACCESS_TOKEN,
     driveFolderId: process.env.DESA_DRIVE_FOLDER_ID,
   },
   bella: {
-    adAccountId: process.env.BELLA_META_AD_ACCOUNT_ID, // act_1073...
+    adAccountId: process.env.BELLA_META_AD_ACCOUNT_ID,
     accessToken: process.env.BELLA_META_ACCESS_TOKEN,
     driveFolderId: process.env.BELLA_DRIVE_FOLDER_ID,
   },
@@ -69,7 +70,8 @@ async function downloadFileToBuffer(url) {
 }
 
 /**
- * Google Drive'a upload (googleapis kendi multipart yapısını kullanıyor)
+ * Google Drive'a upload
+ * ÖNEMLİ: body olarak Buffer değil, Readable stream veriyoruz (pipe hatasını çözer)
  */
 async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
   const drive = getDriveClient();
@@ -81,12 +83,12 @@ async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
     },
     media: {
       mimeType,
-      body: buffer,
+      body: Readable.from(buffer), // <-- kritik değişiklik
     },
     fields: "id, webViewLink, webContentLink",
   });
 
-  return res.data; // { id, webViewLink, webContentLink }
+  return res.data;
 }
 
 /**
@@ -120,7 +122,6 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   });
 
   const headers = form.getHeaders();
-
   const url = `https://graph.facebook.com/v21.0/${adAccount}/adimages`;
 
   const res = await axios.post(url, form, {
@@ -166,7 +167,6 @@ async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   });
 
   const headers = form.getHeaders();
-
   const url = `https://graph.facebook.com/v21.0/${adAccount}/advideos`;
 
   const res = await axios.post(url, form, {
@@ -192,15 +192,6 @@ async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
 
 /**
  * Ana handler – URL / upload / Drive senaryolarını yönetiyor
- * body:
- *  brand: "bella" | "desa"
- *  type: "image" | "video"
- *  sourceType: "url" | "upload" | "drive"
- *  sourceUrl?: string
- *  driveUrl?: string
- *  fileName?: string
- *  fileBase64?: string   (upload senaryosu)
- *  fileMimeType?: string
  */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -211,7 +202,7 @@ export default async function handler(req, res) {
     const {
       brand,
       type,
-      sourceType = "url",
+      sourceType = "url", // "url" | "upload" | "drive"
       sourceUrl,
       driveUrl,
       fileName,
@@ -266,7 +257,6 @@ export default async function handler(req, res) {
     let usedSourceUrl = null;
 
     if (sourceType === "upload") {
-      // Frontend'den gelen base64 → Buffer
       buffer = Buffer.from(fileBase64, "base64");
       mimeType = fileMimeType || "application/octet-stream";
     } else {
