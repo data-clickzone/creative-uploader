@@ -1,9 +1,9 @@
 // api/upload-creative.js
 import { google } from "googleapis";
 import FormData from "form-data";
+import axios from "axios";
 
-// küçük debug için versiyon
-const API_VERSION = "v3";
+const API_VERSION = "v4";
 
 // Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
@@ -47,22 +47,29 @@ function getDriveClient() {
 }
 
 /**
- * URL'den dosya indirip Buffer + content-type döner
+ * URL'den dosya indirip Buffer + content-type döner (axios ile)
  */
 async function downloadFileToBuffer(url) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Kaynak URL indirilemedi: ${res.status} ${res.statusText}`);
+  const res = await axios.get(url, {
+    responseType: "arraybuffer",
+    validateStatus: () => true,
+  });
+
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(
+      `Kaynak URL indirilemedi: ${res.status} ${res.statusText || ""}`
+    );
   }
-  const arrayBuffer = await res.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+
+  const buffer = Buffer.from(res.data);
   const contentType =
-    res.headers.get("content-type") || "application/octet-stream";
+    res.headers["content-type"] || "application/octet-stream";
+
   return { buffer, contentType };
 }
 
 /**
- * Google Drive'a upload
+ * Google Drive'a upload (googleapis kendi multipart yapısını kullanıyor)
  */
 async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
   const drive = getDriveClient();
@@ -74,7 +81,7 @@ async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
     },
     media: {
       mimeType,
-      body: buffer, // Buffer direkt verilebilir
+      body: buffer,
     },
     fields: "id, webViewLink, webContentLink",
   });
@@ -94,7 +101,7 @@ function normalizeAdAccountId(rawId) {
 }
 
 /**
- * Meta'ya image upload (adimages) – form-data ile
+ * Meta'ya image upload (adimages) – axios + form-data
  */
 async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
@@ -113,17 +120,17 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   });
 
   const headers = form.getHeaders();
+
   const url = `https://graph.facebook.com/v21.0/${adAccount}/adimages`;
 
-  const res = await fetch(url, {
-    method: "POST",
-    body: form,
+  const res = await axios.post(url, form, {
     headers,
+    validateStatus: () => true,
   });
 
-  const json = await res.json();
+  const json = res.data;
 
-  if (!res.ok) {
+  if (res.status < 200 || res.status >= 300) {
     throw new Error(
       `Meta image upload hata: ${res.status} - ${JSON.stringify(json)}`
     );
@@ -140,7 +147,7 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
 }
 
 /**
- * Meta'ya video upload (advideos) – form-data ile
+ * Meta'ya video upload (advideos) – axios + form-data
  */
 async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
@@ -159,17 +166,19 @@ async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   });
 
   const headers = form.getHeaders();
+
   const url = `https://graph.facebook.com/v21.0/${adAccount}/advideos`;
 
-  const res = await fetch(url, {
-    method: "POST",
-    body: form,
+  const res = await axios.post(url, form, {
     headers,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+    validateStatus: () => true,
   });
 
-  const json = await res.json();
+  const json = res.data;
 
-  if (!res.ok) {
+  if (res.status < 200 || res.status >= 300) {
     throw new Error(
       `Meta video upload hata: ${res.status} - ${JSON.stringify(json)}`
     );
@@ -273,7 +282,7 @@ export default async function handler(req, res) {
         ? "uploaded_" + Date.now()
         : `${brand}_${Date.now()}.${type === "image" ? "jpg" : "mp4"}`);
 
-    // 1) Google Drive'a yükle
+    // 1) Google Drive'a upload
     const driveFile = await uploadToDrive({
       buffer,
       mimeType,
@@ -281,7 +290,7 @@ export default async function handler(req, res) {
       folderId: brandCfg.driveFolderId,
     });
 
-    // 2) Meta'ya yükle
+    // 2) Meta'ya upload
     let metaResult;
     if (type === "image") {
       metaResult = await uploadImageToMeta({
