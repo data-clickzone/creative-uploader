@@ -1,23 +1,27 @@
-import { google } from 'googleapis';
-import fs from 'fs';
+// api/upload-creative.js
+import { google } from "googleapis";
+import fs from "fs";
+import FormData from "form-data";
 
-// Marka bazlı config – senin .env ile uyumlu
+// Marka bazlı config – senin .env ile uyumlu olmalı
 const BRAND_CONFIG = {
   desa: {
-    adAccountId: process.env.DESA_META_AD_ACCOUNT_ID,       // act_1171... şeklinde
+    adAccountId: process.env.DESA_META_AD_ACCOUNT_ID, // act_1171... şeklinde
     accessToken: process.env.DESA_META_ACCESS_TOKEN,
     driveFolderId: process.env.DESA_DRIVE_FOLDER_ID,
   },
   bella: {
-    adAccountId: process.env.BELLA_META_AD_ACCOUNT_ID,      // act_1073... şeklinde
+    adAccountId: process.env.BELLA_META_AD_ACCOUNT_ID, // act_1073... şeklinde
     accessToken: process.env.BELLA_META_ACCESS_TOKEN,
     driveFolderId: process.env.BELLA_DRIVE_FOLDER_ID,
   },
 };
 
-// Service account bilgilerini al – iki opsiyon:
-// 1) GOOGLE_SERVICE_ACCOUNT_JSON env'si (tüm JSON string olarak)
-// 2) GOOGLE_CREDENTIALS_FILE env'si üzerinden dosya
+/**
+ * Google Service Account bilgilerini getir
+ * - Tercihen: GOOGLE_SERVICE_ACCOUNT_JSON (JSON string)
+ * - Alternatif: GOOGLE_CREDENTIALS_FILE (sunucuda dosya yolu)
+ */
 function getServiceAccountCredentials() {
   if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
     return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -25,19 +29,19 @@ function getServiceAccountCredentials() {
 
   if (process.env.GOOGLE_CREDENTIALS_FILE) {
     const filePath = process.env.GOOGLE_CREDENTIALS_FILE;
-    const raw = fs.readFileSync(filePath, 'utf8');
+    const raw = fs.readFileSync(filePath, "utf8");
     return JSON.parse(raw);
   }
 
   throw new Error(
-    'Google service account bilgisi bulunamadı. GOOGLE_SERVICE_ACCOUNT_JSON veya GOOGLE_CREDENTIALS_FILE ayarla.'
+    "Google service account bulunamadı. GOOGLE_SERVICE_ACCOUNT_JSON veya GOOGLE_CREDENTIALS_FILE ayarla."
   );
 }
 
 function getDriveClient() {
   const creds = getServiceAccountCredentials();
 
-  const scopes = ['https://www.googleapis.com/auth/drive'];
+  const scopes = ["https://www.googleapis.com/auth/drive"];
 
   const auth = new google.auth.JWT(
     creds.client_email,
@@ -46,10 +50,13 @@ function getDriveClient() {
     scopes
   );
 
-  const drive = google.drive({ version: 'v3', auth });
+  const drive = google.drive({ version: "v3", auth });
   return drive;
 }
 
+/**
+ * URL'den dosya indirip Buffer + content-type dön
+ */
 async function downloadFileToBuffer(url) {
   const res = await fetch(url);
   if (!res.ok) {
@@ -58,10 +65,13 @@ async function downloadFileToBuffer(url) {
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const contentType =
-    res.headers.get('content-type') || 'application/octet-stream';
+    res.headers.get("content-type") || "application/octet-stream";
   return { buffer, contentType };
 }
 
+/**
+ * Google Drive'a yükle
+ */
 async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
   const drive = getDriveClient();
 
@@ -74,43 +84,51 @@ async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
       mimeType,
       body: Buffer.from(buffer),
     },
-    fields: 'id, webViewLink, webContentLink',
+    fields: "id, webViewLink, webContentLink",
   });
 
   return res.data; // { id, webViewLink, webContentLink }
 }
 
+/**
+ * Ad account ID'yi normalize et
+ * - "act_..." şeklinde değilse başına act_ ekle
+ */
 function normalizeAdAccountId(rawId) {
   if (!rawId) {
-    throw new Error('Meta ad account ID tanımlı değil');
+    throw new Error("Meta ad account ID tanımlı değil");
   }
-  // "act_..." geliyorsa doğrudan kullan
-  if (rawId.startsWith('act_')) return rawId;
+  if (rawId.startsWith("act_")) return rawId;
   return `act_${rawId}`;
 }
 
+/**
+ * Meta'ya image upload (adimages) – form-data ile (pipe hatası yok)
+ */
 async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
   if (!accessToken) {
-    throw new Error('Meta access token tanımlı değil (brand için).');
+    throw new Error("Meta access token tanımlı değil (brand için).");
   }
 
   const adAccount = normalizeAdAccountId(brandCfg.adAccountId);
 
   const form = new FormData();
-  form.append('access_token', accessToken);
-  form.append('name', fileName);
-
-  const blob = new Blob([buffer], {
-    type: mimeType || 'application/octet-stream',
+  form.append("access_token", accessToken);
+  form.append("name", fileName);
+  form.append("bytes", buffer, {
+    filename: fileName,
+    contentType: mimeType || "application/octet-stream",
   });
-  form.append('bytes', blob, fileName);
+
+  const headers = form.getHeaders();
 
   const url = `https://graph.facebook.com/v21.0/${adAccount}/adimages`;
 
   const res = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     body: form,
+    headers,
   });
 
   const json = await res.json();
@@ -131,28 +149,33 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   };
 }
 
+/**
+ * Meta'ya video upload (advideos) – form-data ile
+ */
 async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
   if (!accessToken) {
-    throw new Error('Meta access token tanımlı değil (brand için).');
+    throw new Error("Meta access token tanımlı değil (brand için).");
   }
 
   const adAccount = normalizeAdAccountId(brandCfg.adAccountId);
 
   const form = new FormData();
-  form.append('access_token', accessToken);
-  form.append('title', fileName);
-
-  const blob = new Blob([buffer], {
-    type: mimeType || 'video/mp4',
+  form.append("access_token", accessToken);
+  form.append("title", fileName);
+  form.append("source", buffer, {
+    filename: fileName,
+    contentType: mimeType || "video/mp4",
   });
-  form.append('source', blob, fileName);
+
+  const headers = form.getHeaders();
 
   const url = `https://graph.facebook.com/v21.0/${adAccount}/advideos`;
 
   const res = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     body: form,
+    headers,
   });
 
   const json = await res.json();
@@ -169,16 +192,19 @@ async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   };
 }
 
+/**
+ * Ana handler – URL / upload / Drive senaryolarını yönetiyor
+ */
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: 'Only POST allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "Only POST allowed" });
   }
 
   try {
     const {
       brand,
       type,
-      sourceType = 'url',
+      sourceType = "url", // "url" | "upload" | "drive"
       sourceUrl,
       driveUrl,
       fileName,
@@ -189,7 +215,7 @@ export default async function handler(req, res) {
     if (!brand || !type) {
       return res.status(400).json({
         ok: false,
-        error: 'brand ve type zorunlu alanlar',
+        error: "brand ve type zorunlu alanlar",
       });
     }
 
@@ -197,34 +223,34 @@ export default async function handler(req, res) {
     if (!brandCfg) {
       return res.status(400).json({
         ok: false,
-        error: 'Geçersiz brand. Örnek: desa, bella',
+        error: 'Geçersiz brand. Örnek: "desa" veya "bella"',
       });
     }
 
-    if (type !== 'image' && type !== 'video') {
+    if (type !== "image" && type !== "video") {
       return res.status(400).json({
         ok: false,
         error: 'type "image" veya "video" olmalı',
       });
     }
 
-    // Kaynak tipine göre validasyon
-    if (sourceType === 'url' && !sourceUrl) {
+    // Kaynak tipine göre temel validasyon
+    if (sourceType === "url" && !sourceUrl) {
       return res.status(400).json({
         ok: false,
-        error: 'sourceType=url ise sourceUrl zorunlu',
+        error: "sourceType=url ise sourceUrl zorunlu",
       });
     }
-    if (sourceType === 'drive' && !driveUrl) {
+    if (sourceType === "drive" && !driveUrl) {
       return res.status(400).json({
         ok: false,
-        error: 'sourceType=drive ise driveUrl zorunlu',
+        error: "sourceType=drive ise driveUrl zorunlu",
       });
     }
-    if (sourceType === 'upload' && !fileBase64) {
+    if (sourceType === "upload" && !fileBase64) {
       return res.status(400).json({
         ok: false,
-        error: 'sourceType=upload ise fileBase64 zorunlu',
+        error: "sourceType=upload ise fileBase64 zorunlu",
       });
     }
 
@@ -232,12 +258,12 @@ export default async function handler(req, res) {
     let mimeType;
     let usedSourceUrl = null;
 
-    if (sourceType === 'upload') {
-      // Frontend'den gelen base64'ü buffer'a çevir
-      buffer = Buffer.from(fileBase64, 'base64');
-      mimeType = fileMimeType || 'application/octet-stream';
+    if (sourceType === "upload") {
+      // Frontend'den gelen base64 payload → Buffer
+      buffer = Buffer.from(fileBase64, "base64");
+      mimeType = fileMimeType || "application/octet-stream";
     } else {
-      usedSourceUrl = sourceType === 'drive' ? driveUrl : sourceUrl;
+      usedSourceUrl = sourceType === "drive" ? driveUrl : sourceUrl;
       const downloaded = await downloadFileToBuffer(usedSourceUrl);
       buffer = downloaded.buffer;
       mimeType = downloaded.contentType;
@@ -245,11 +271,11 @@ export default async function handler(req, res) {
 
     const safeFileName =
       fileName ||
-      (sourceType === 'upload'
-        ? 'uploaded_' + Date.now()
-        : `${brand}_${Date.now()}.${type === 'image' ? 'jpg' : 'mp4'}`);
+      (sourceType === "upload"
+        ? "uploaded_" + Date.now()
+        : `${brand}_${Date.now()}.${type === "image" ? "jpg" : "mp4"}`);
 
-    // 1) Drive'a yükle
+    // 1) Google Drive'a yükle
     const driveFile = await uploadToDrive({
       buffer,
       mimeType,
@@ -258,8 +284,8 @@ export default async function handler(req, res) {
     });
 
     // 2) Meta'ya yükle
-    let metaResult = null;
-    if (type === 'image') {
+    let metaResult;
+    if (type === "image") {
       metaResult = await uploadImageToMeta({
         buffer,
         mimeType,
@@ -287,10 +313,10 @@ export default async function handler(req, res) {
       meta: metaResult,
     });
   } catch (err) {
-    console.error('upload-creative hata:', err);
+    console.error("upload-creative hata:", err);
     return res.status(500).json({
       ok: false,
-      error: err.message || 'Bilinmeyen hata',
+      error: err.message || "Bilinmeyen hata",
     });
   }
 }
