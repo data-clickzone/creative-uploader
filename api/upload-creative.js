@@ -5,7 +5,7 @@ import axios from "axios";
 import { Readable } from "stream";
 import sharp from "sharp";
 
-const API_VERSION = "oauth-drive-final-v2";
+const API_VERSION = "oauth-drive-final-v3";
 
 // Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
@@ -79,7 +79,6 @@ async function normalizeImageForMeta(buffer, mimeType) {
     );
   }
 
-  // Her durumda RGB JPEG'e çeviriyoruz:
   const jpegBuffer = await sharp(buffer)
     .jpeg({
       quality: 90,
@@ -288,14 +287,41 @@ export default async function handler(req, res) {
     let usedSourceUrl = null;
 
     if (sourceType === "upload") {
-      buffer = Buffer.from(fileBase64, "base64");
-      mimeType = fileMimeType || "application/octet-stream";
+      // Data URL ise (data:image/jpeg;base64,...) prefix'i temizle
+      let base64 = fileBase64;
+      let inferredMime = fileMimeType || null;
+
+      const dataUrlMatch = /^data:(.*?);base64,(.*)$/.exec(fileBase64 || "");
+      if (dataUrlMatch) {
+        inferredMime = inferredMime || dataUrlMatch[1];
+        base64 = dataUrlMatch[2];
+      }
+
+      buffer = Buffer.from(base64, "base64");
+      mimeType = inferredMime || "application/octet-stream";
     } else {
       usedSourceUrl = sourceType === "drive" ? driveUrl : sourceUrl;
       const downloaded = await downloadFileToBuffer(usedSourceUrl);
       buffer = downloaded.buffer;
       mimeType = downloaded.contentType;
     }
+
+    // DEBUG: Vercel log için
+    console.log(
+      "UPLOAD DEBUG →",
+      JSON.stringify(
+        {
+          brand,
+          type,
+          sourceType,
+          mimeType,
+          fileName: fileName || null,
+          bufferLength: buffer?.length || 0,
+        },
+        null,
+        2
+      )
+    );
 
     // Görselse, her zaman RGB JPEG'e çevir
     if (type === "image") {
