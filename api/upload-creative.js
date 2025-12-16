@@ -3,8 +3,9 @@ import { google } from "googleapis";
 import FormData from "form-data";
 import axios from "axios";
 import { Readable } from "stream";
+import sharp from "sharp";
 
-const API_VERSION = "oauth-drive-final";
+const API_VERSION = "oauth-drive-final-v2";
 
 // Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
@@ -68,6 +69,31 @@ async function downloadFileToBuffer(url) {
 }
 
 /**
+ * Gelen görseli Meta için normalize et:
+ * - Her zaman RGB JPEG'e çevir (CMYK / WEBP vs. ne gelirse gelsin)
+ */
+async function normalizeImageForMeta(buffer, mimeType) {
+  if (!mimeType || !mimeType.startsWith("image/")) {
+    throw new Error(
+      `Bu dosya bir görsel değil (mimeType=${mimeType || "bilinmiyor"}).`
+    );
+  }
+
+  // Her durumda RGB JPEG'e çeviriyoruz:
+  const jpegBuffer = await sharp(buffer)
+    .jpeg({
+      quality: 90,
+      chromaSubsampling: "4:4:4",
+    })
+    .toBuffer();
+
+  return {
+    buffer: jpegBuffer,
+    mimeType: "image/jpeg",
+  };
+}
+
+/**
  * Google Drive'a upload – OAuth ile, Readable stream kullanıyoruz
  */
 async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
@@ -115,7 +141,7 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   form.append("name", fileName);
   form.append("bytes", buffer, {
     filename: fileName,
-    contentType: mimeType || "application/octet-stream",
+    contentType: mimeType || "image/jpeg",
   });
 
   const headers = form.getHeaders();
@@ -269,6 +295,13 @@ export default async function handler(req, res) {
       const downloaded = await downloadFileToBuffer(usedSourceUrl);
       buffer = downloaded.buffer;
       mimeType = downloaded.contentType;
+    }
+
+    // Görselse, her zaman RGB JPEG'e çevir
+    if (type === "image") {
+      const normalized = await normalizeImageForMeta(buffer, mimeType);
+      buffer = normalized.buffer;
+      mimeType = normalized.mimeType;
     }
 
     const safeFileName =
