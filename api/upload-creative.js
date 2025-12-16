@@ -3,9 +3,8 @@ import { google } from "googleapis";
 import FormData from "form-data";
 import axios from "axios";
 import { Readable } from "stream";
-import sharp from "sharp";
 
-const API_VERSION = "oauth-drive-final-v3";
+const API_VERSION = "oauth-drive-final-v4";
 
 // Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
@@ -69,30 +68,6 @@ async function downloadFileToBuffer(url) {
 }
 
 /**
- * Gelen görseli Meta için normalize et:
- * - Her zaman RGB JPEG'e çevir (CMYK / WEBP vs. ne gelirse gelsin)
- */
-async function normalizeImageForMeta(buffer, mimeType) {
-  if (!mimeType || !mimeType.startsWith("image/")) {
-    throw new Error(
-      `Bu dosya bir görsel değil (mimeType=${mimeType || "bilinmiyor"}).`
-    );
-  }
-
-  const jpegBuffer = await sharp(buffer)
-    .jpeg({
-      quality: 90,
-      chromaSubsampling: "4:4:4",
-    })
-    .toBuffer();
-
-  return {
-    buffer: jpegBuffer,
-    mimeType: "image/jpeg",
-  };
-}
-
-/**
  * Google Drive'a upload – OAuth ile, Readable stream kullanıyoruz
  */
 async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
@@ -126,6 +101,7 @@ function normalizeAdAccountId(rawId) {
 
 /**
  * Meta'ya image upload (adimages) – axios + form-data
+ * Burada buffer'ı OLDUĞU GİBİ gönderiyoruz; ekstra dönüşüm yok.
  */
 async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
@@ -133,15 +109,20 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
     throw new Error("Meta access token tanımlı değil (brand için).");
   }
 
+  if (!mimeType || !mimeType.startsWith("image/")) {
+    throw new Error(
+      `Bu dosya bir görsel değil (mimeType=${mimeType || "bilinmiyor"}).`
+    );
+  }
+
   const adAccount = normalizeAdAccountId(brandCfg.adAccountId);
 
   const form = new FormData();
   form.append("access_token", accessToken);
   form.append("name", fileName);
-  form.append("bytes", buffer, {
-    filename: fileName,
-    contentType: mimeType || "image/jpeg",
-  });
+
+  // ÖNEMLİ: Sadece filename veriyoruz, contentType'i form-data'ya bırakıyoruz
+  form.append("bytes", buffer, fileName + ".jpg");
 
   const headers = form.getHeaders();
   const url = `https://graph.facebook.com/v21.0/${adAccount}/adimages`;
@@ -322,13 +303,6 @@ export default async function handler(req, res) {
         2
       )
     );
-
-    // Görselse, her zaman RGB JPEG'e çevir
-    if (type === "image") {
-      const normalized = await normalizeImageForMeta(buffer, mimeType);
-      buffer = normalized.buffer;
-      mimeType = normalized.mimeType;
-    }
 
     const safeFileName =
       fileName ||
