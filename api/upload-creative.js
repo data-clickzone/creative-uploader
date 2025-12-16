@@ -4,7 +4,7 @@ import FormData from "form-data";
 import axios from "axios";
 import { Readable } from "stream";
 
-const API_VERSION = "oauth-drive-final-v4";
+const API_VERSION = "oauth-drive-final-url-v1";
 
 // Marka bazlı config – .env ile uyumlu
 const BRAND_CONFIG = {
@@ -82,10 +82,30 @@ async function uploadToDrive({ buffer, mimeType, fileName, folderId }) {
       mimeType,
       body: Readable.from(buffer),
     },
-    fields: "id, webViewLink, webContentLink",
+    fields: "id, webViewLink",
   });
 
   return res.data;
+}
+
+/**
+ * Dosyayı public yap ve download edilebilir bir URL üret
+ */
+async function makeDriveFilePublicAndGetUrl(fileId) {
+  const drive = getDriveClient();
+
+  // anyone with the link -> reader
+  await drive.permissions.create({
+    fileId,
+    requestBody: {
+      role: "reader",
+      type: "anyone",
+    },
+  });
+
+  // Direkt download linki (Graph API GET ile çekebilsin)
+  const publicUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  return publicUrl;
 }
 
 /**
@@ -100,43 +120,37 @@ function normalizeAdAccountId(rawId) {
 }
 
 /**
- * Meta'ya image upload (adimages) – axios + form-data
- * Burada buffer'ı OLDUĞU GİBİ gönderiyoruz; ekstra dönüşüm yok.
+ * Meta'ya image upload (adimages) – URL parametresi ile
  */
-async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
+async function uploadImageToMetaViaUrl({ imageUrl, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
   if (!accessToken) {
     throw new Error("Meta access token tanımlı değil (brand için).");
   }
 
-  if (!mimeType || !mimeType.startsWith("image/")) {
-    throw new Error(
-      `Bu dosya bir görsel değil (mimeType=${mimeType || "bilinmiyor"}).`
-    );
-  }
-
   const adAccount = normalizeAdAccountId(brandCfg.adAccountId);
 
-  const form = new FormData();
-  form.append("access_token", accessToken);
-  form.append("name", fileName);
-
-  // ÖNEMLİ: Sadece filename veriyoruz, contentType'i form-data'ya bırakıyoruz
-  form.append("bytes", buffer, fileName + ".jpg");
-
-  const headers = form.getHeaders();
   const url = `https://graph.facebook.com/v21.0/${adAccount}/adimages`;
 
-  const res = await axios.post(url, form, {
-    headers,
-    validateStatus: () => true,
-  });
+  // URL ile gönderiyoruz, multipart yok
+  const res = await axios.post(
+    url,
+    {},
+    {
+      params: {
+        access_token: accessToken,
+        name: fileName,
+        url: imageUrl,
+      },
+      validateStatus: () => true,
+    }
+  );
 
   const json = res.data;
 
   if (res.status < 200 || res.status >= 300) {
     throw new Error(
-      `Meta image upload hata: ${res.status} - ${JSON.stringify(json)}`
+      `Meta image upload (url) hata: ${res.status} - ${JSON.stringify(json)}`
     );
   }
 
@@ -147,11 +161,12 @@ async function uploadImageToMeta({ buffer, mimeType, fileName, brandCfg }) {
   return {
     raw: json,
     imageHash: imageData.hash,
+    urlUsed: imageUrl,
   };
 }
 
 /**
- * Meta'ya video upload (advideos) – axios + form-data
+ * Meta'ya video upload (advideos) – şimdilik eski bytes yöntemini koruyorum
  */
 async function uploadVideoToMeta({ buffer, mimeType, fileName, brandCfg }) {
   const accessToken = brandCfg.accessToken;
@@ -318,12 +333,15 @@ export default async function handler(req, res) {
       folderId: brandCfg.driveFolderId,
     });
 
-    // 2) Meta'ya upload
+    // 2) Drive dosyasını public yap ve url al
+    const drivePublicUrl =
+      type === "image" ? await makeDriveFilePublicAndGetUrl(driveFile.id) : null;
+
+    // 3) Meta'ya upload
     let metaResult;
     if (type === "image") {
-      metaResult = await uploadImageToMeta({
-        buffer,
-        mimeType,
+      metaResult = await uploadImageToMetaViaUrl({
+        imageUrl: drivePublicUrl,
         fileName: safeFileName,
         brandCfg,
       });
@@ -346,6 +364,7 @@ export default async function handler(req, res) {
       fileName: safeFileName,
       driveFileId: driveFile.id,
       driveWebViewLink: driveFile.webViewLink,
+      drivePublicUrl,
       meta: metaResult,
     });
   } catch (err) {
