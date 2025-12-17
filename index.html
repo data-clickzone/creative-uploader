@@ -5,33 +5,219 @@
   <title>Creative Uploader – DESA & Bella Maison</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    :root {
+      --primary: #13c296;
+      --primary-strong: #0e9f7a;
+      --border: #e4e4e7;
+      --text: #0f172a;
+      --muted: #6b7280;
+      --surface: #ffffff;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #f4f4f5;
+      font-family: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #f5fbf7 0%, #e9f6ef 45%, #f5fbf7 100%);
       margin: 0;
       padding: 0;
+      color: var(--text);
     }
     .container {
       max-width: 720px;
       margin: 40px auto;
       background: #ffffff;
+    .app-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+    }
+    .app-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
       border-radius: 16px;
       padding: 24px 28px 32px;
       box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
       border: 1px solid #e4e4e7;
+      padding: 12px 16px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--primary-strong);
+      font-size: 16px;
+    }
+    .brand-mark .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), #54f0c8);
+      box-shadow: 0 6px 14px rgba(19, 194, 150, 0.4);
+    }
+    .search-bar {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 12px;
+    }
+    .search-bar input {
+      border: none;
+      background: transparent;
+      outline: none;
+      width: 100%;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #d8f7ec, #c2f3e2);
+      display: grid;
+      place-items: center;
+      color: var(--primary-strong);
+      font-weight: 700;
+    }
+    .container {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 24px 24px 32px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+      border: 1px solid var(--border);
     }
     h1 {
       margin-top: 0;
+      margin: 0;
       font-size: 24px;
       letter-spacing: 0.02em;
+      letter-spacing: 0.01em;
     }
     p.subtitle {
       margin-top: 4px;
       color: #6b7280;
+      margin: 6px 0 0;
+      color: var(--muted);
       font-size: 14px;
+      line-height: 1.6;
+    }
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 22px 0;
+    }
+    .step {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .step .bullet {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #e2e8f0;
+      color: #475569;
+      font-weight: 700;
+    }
+    .step.active {
+      border-color: rgba(19, 194, 150, 0.4);
+      background: linear-gradient(135deg, rgba(19, 194, 150, 0.08), #f8fafc);
+      color: var(--primary-strong);
+    }
+    .step.active .bullet {
+      background: linear-gradient(135deg, var(--primary), #54f0c8);
+      color: #0f172a;
+      box-shadow: 0 6px 14px rgba(19, 194, 150, 0.35);
+    }
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+    .section-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      background: #fdfefe;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+      margin-bottom: 16px;
+    }
+    .section-card h3 {
+      margin: 0 0 6px 0;
+    }
+    .brand-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .brand-tile {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      background: linear-gradient(135deg, #ffffff, #f6faf8);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .brand-tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+    }
+    .brand-tile.selected {
+      border-color: rgba(19, 194, 150, 0.5);
+      box-shadow: 0 12px 26px rgba(19, 194, 150, 0.2);
+    }
+    .brand-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .brand-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .brand-helper {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .brand-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(19, 194, 150, 0.1);
+      color: var(--primary-strong);
+      font-size: 12px;
+      font-weight: 700;
+      align-self: flex-start;
     }
     form {
       margin-top: 20px;
+      margin-top: 10px;
     }
     .field {
       margin-bottom: 16px;
@@ -39,6 +225,10 @@
     label {
       display: block;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
       margin-bottom: 6px;
       font-size: 14px;
     }
@@ -48,9 +238,13 @@
       width: 100%;
       padding: 9px 10px;
       border-radius: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
       border: 1px solid #d4d4d8;
       font-size: 14px;
       box-sizing: border-box;
+      background: #f9fafb;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
     }
     select:focus,
     input[type="text"]:focus,
@@ -58,6 +252,8 @@
       outline: none;
       border-color: #6366f1;
       box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
+      border-color: rgba(19, 194, 150, 0.6);
+      box-shadow: 0 0 0 3px rgba(19, 194, 150, 0.18);
     }
     .row {
       display: flex;
@@ -69,7 +265,9 @@
     .helper {
       font-size: 12px;
       color: #9ca3af;
+      color: var(--muted);
       margin-top: 4px;
+      line-height: 1.5;
     }
     .source-type-group {
       display: flex;
@@ -79,31 +277,62 @@
     }
     .source-type-group label {
       font-weight: 500;
+      font-weight: 600;
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      gap: 8px;
       cursor: pointer;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
     }
     .source-type-group input[type="radio"] {
       transform: scale(1.1);
+      accent-color: var(--primary);
     }
     button {
+    button,
+    .ghost-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 9px 18px;
       border-radius: 999px;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 12px;
       border: none;
       font-size: 14px;
       font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       background: #111827;
       color: #f9fafb;
+      background: linear-gradient(135deg, var(--primary), #54f0c8);
+      color: #0f172a;
       margin-top: 8px;
+      box-shadow: 0 10px 20px rgba(19, 194, 150, 0.22);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    button:hover,
+    .ghost-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(19, 194, 150, 0.28);
     }
     button:disabled {
       opacity: 0.5;
+      opacity: 0.6;
       cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
+    .ghost-btn {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      box-shadow: none;
+      color: var(--muted);
     }
     .status {
       margin-top: 16px;
@@ -135,8 +364,27 @@
     }
     .tag {
       padding: 3px 8px;
+      padding: 6px 10px;
       border-radius: 999px;
       border: 1px dashed #d4d4d8;
+      background: #f8fafc;
+      font-weight: 700;
+      color: #475569;
+    }
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 10px 0 4px 0;
+    }
+    .pill {
+      background: rgba(19, 194, 150, 0.12);
+      color: var(--primary-strong);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
     }
     .hidden {
       display: none;
@@ -145,12 +393,22 @@
       .container {
         margin: 16px;
         padding: 18px 16px 24px;
+    @media (max-width: 900px) {
+      .app-bar {
+        flex-wrap: wrap;
       }
       h1 {
         font-size: 20px;
+    }
+    @media (max-width: 640px) {
+      .app-shell {
+        padding: 16px 14px 32px;
       }
       .row {
         flex-direction: column;
+      }
+      .stepper {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -181,7 +439,15 @@
             <option value="video">Video</option>
           </select>
         </div>
+  <div class="app-shell">
+    <div class="app-bar">
+      <div class="brand-mark"><span class="dot"></span> Creative Uploader</div>
+      <div class="search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" placeholder="Görev, marka, kullanıcı ara..." />
       </div>
+      <div class="avatar">CB</div>
+    </div>
 
       <div class="field">
         <label>Kaynak türü</label>
@@ -203,6 +469,12 @@
           Drive seçeneğinde paylaşıma açık bir dosya linki (share link) kullanmalısın.
         </div>
       </div>
+    <div class="container">
+      <h1>Creative Uploader</h1>
+      <p class="subtitle">
+        DESA ve Bella Maison için görsel / video URL’si gir ya da bilgisayarından / Google Drive’dan dosya seç; hem Meta’ya
+        yükleyelim hem de Google Drive’da markaya özel klasöre kopyasını alalım.
+      </p>
 
       <!-- URL alanı -->
       <div class="field" id="field-source-url">
@@ -216,6 +488,9 @@
         <div class="helper">
           CDN / web site URL’si. Backend bu dosyayı indirip hem Meta’ya hem Drive’a gönderecek.
         </div>
+      <div class="stepper">
+        <div class="step active" id="step-badge-brand"><span class="bullet">1</span> Marka seçimi</div>
+        <div class="step" id="step-badge-form"><span class="bullet">2</span> Yükleme detayları</div>
       </div>
 
       <!-- Bilgisayardan upload alanı -->
@@ -229,8 +504,33 @@
         />
         <div class="helper">
           Görsel veya video dosyası seçebilirsin. Boyutu çok büyük dosyalarda ilk etapta test amaçlı daha küçük dosya kullanman daha sağlıklı olur.
+      <section class="section active" id="section-brand">
+        <div class="section-card">
+          <h3>Markanı seç</h3>
+          <p class="subtitle" style="margin-top:4px;">Facebook Developer onayı için marka seçimi ayrı ekranda ilerletiliyor.</p>
+          <div class="brand-grid">
+            <div class="brand-tile" data-brand="bella" data-label="Bella Maison">
+              <div class="brand-info">
+                <div class="brand-name">Bella Maison</div>
+                <div class="brand-helper">Premium home décor & lifestyle koleksiyonu.</div>
+              </div>
+              <div class="brand-chip">bella</div>
+            </div>
+            <div class="brand-tile" data-brand="desa" data-label="DESA">
+              <div class="brand-info">
+                <div class="brand-name">DESA</div>
+                <div class="brand-helper">Deri ve aksesuar ürünleri için kreatif yönetim.</div>
+              </div>
+              <div class="brand-chip">desa</div>
+            </div>
+          </div>
+          <div class="pill-row">
+            <div class="pill" id="selectedBrandPill">Marka seçilmedi</div>
+            <button id="continueBtn" disabled>Devam et</button>
+          </div>
         </div>
       </div>
+      </section>
 
       <!-- Google Drive URL alanı -->
       <div class="field hidden" id="field-drive-url">
@@ -243,6 +543,15 @@
         />
         <div class="helper">
           Paylaşıma açık bir Google Drive dosya linki gir. Backend bu URL üzerinden indirip işlem yapar.
+      <section class="section" id="section-form">
+        <div class="section-card">
+          <div class="row" style="align-items:center; justify-content:space-between; gap:10px;">
+            <div>
+              <div class="brand-helper" style="font-size:12px; text-transform:uppercase; letter-spacing:0.04em;">Seçili marka</div>
+              <div class="brand-name" id="currentBrandLabel">-</div>
+            </div>
+            <button type="button" class="ghost-btn" id="changeBrandBtn">Markayı değiştir</button>
+          </div>
         </div>
       </div>
 
@@ -262,8 +571,40 @@
           </ul>
         </div>
       </div>
+        <form id="uploadForm">
+          <input type="hidden" id="brand" name="brand" />
 
       <button type="submit" id="submitBtn">Yüklemeyi Başlat</button>
+          <div class="row">
+            <div class="field">
+              <label for="type">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line></svg>
+                Medya tipi
+              </label>
+              <select id="type" name="type" required>
+                <option value="image">Görsel (Image)</option>
+                <option value="video">Video</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Kaynak türü</label>
+              <div class="source-type-group">
+                <label>
+                  <input type="radio" name="sourceType" value="url" checked />
+                  URL'den getir
+                </label>
+                <label>
+                  <input type="radio" name="sourceType" value="upload" />
+                  Bilgisayardan yükle
+                </label>
+                <label>
+                  <input type="radio" name="sourceType" value="drive" />
+                  Google Drive URL
+                </label>
+              </div>
+              <div class="helper">Drive seçeneğinde paylaşıma açık bir dosya linki (share link) kullanmalısın.</div>
+            </div>
+          </div>
 
       <div class="tag-row">
         <div class="tag">Meta Ads API</div>
@@ -271,10 +612,55 @@
         <div class="tag">URL / Local / Drive</div>
         <div class="tag">DESA / Bella Maison</div>
       </div>
+          <div class="field" id="field-source-url">
+            <label for="sourceUrl">Kaynak URL</label>
+            <input type="text" id="sourceUrl" name="sourceUrl" placeholder="https://cdn.siten.com/path/to/file.jpg" />
+            <div class="helper">CDN / web site URL’si. Backend bu dosyayı indirip hem Meta’ya hem Drive’a gönderecek.</div>
+          </div>
+
+          <div class="field hidden" id="field-file-upload">
+            <label for="fileInput">Bilgisayardan dosya seç</label>
+            <input type="file" id="fileInput" name="fileInput" accept="image/*,video/*" />
+            <div class="helper">
+              Görsel veya video dosyası seçebilirsin. Boyutu çok büyük dosyalarda ilk etapta test amaçlı daha küçük dosya kullanman daha sağlıklı olur.
+            </div>
+          </div>
+
+          <div class="field hidden" id="field-drive-url">
+            <label for="driveUrl">Google Drive URL</label>
+            <input type="text" id="driveUrl" name="driveUrl" placeholder="https://drive.google.com/file/d/..." />
+            <div class="helper">Paylaşıma açık bir Google Drive dosya linki gir. Backend bu URL üzerinden indirip işlem yapar.</div>
+          </div>
+
+          <div class="field">
+            <label for="fileName">Dosya adı (opsiyonel)</label>
+            <input type="text" id="fileName" name="fileName" placeholder="BM_SS24_Look1_Story.jpg" />
+            <div class="helper">
+              Boş bırakırsan:
+              <ul style="margin: 4px 0 0 16px; padding-left: 0; font-size: 12px; color:#9ca3af;">
+                <li>URL / Drive için: <code>brand_timestamp.ext</code></li>
+                <li>Bilgisayar yüklemesinde: Seçtiğin dosya adını kullanır.</li>
+              </ul>
+            </div>
+          </div>
 
       <div id="status" class="status"></div>
       <pre id="result" style="display:none;"></pre>
     </form>
+          <button type="submit" id="submitBtn">Yüklemeyi Başlat</button>
+
+          <div class="tag-row">
+            <div class="tag">Meta Ads API</div>
+            <div class="tag">Google Drive API</div>
+            <div class="tag">URL / Local / Drive</div>
+            <div class="tag">DESA / Bella Maison</div>
+          </div>
+
+          <div id="status" class="status"></div>
+          <pre id="result" style="display:none;"></pre>
+        </form>
+      </section>
+    </div>
   </div>
 
   <script>
@@ -287,6 +673,57 @@
     const fieldFileUpload = document.getElementById('field-file-upload');
     const fieldDriveUrl = document.getElementById('field-drive-url');
     const fileInput = document.getElementById('fileInput');
+
+    const brandTiles = document.querySelectorAll('.brand-tile');
+    const selectedBrandPill = document.getElementById('selectedBrandPill');
+    const continueBtn = document.getElementById('continueBtn');
+    const sectionBrand = document.getElementById('section-brand');
+    const sectionForm = document.getElementById('section-form');
+    const stepBadgeBrand = document.getElementById('step-badge-brand');
+    const stepBadgeForm = document.getElementById('step-badge-form');
+    const currentBrandLabel = document.getElementById('currentBrandLabel');
+    const brandInput = document.getElementById('brand');
+    const changeBrandBtn = document.getElementById('changeBrandBtn');
+
+    let selectedBrandValue = '';
+
+    function setStep(activeStep) {
+      if (activeStep === 'brand') {
+        sectionBrand.classList.add('active');
+        sectionForm.classList.remove('active');
+        stepBadgeBrand.classList.add('active');
+        stepBadgeForm.classList.remove('active');
+      } else {
+        sectionBrand.classList.remove('active');
+        sectionForm.classList.add('active');
+        stepBadgeBrand.classList.remove('active');
+        stepBadgeForm.classList.add('active');
+      }
+    }
+
+    brandTiles.forEach((tile) => {
+      tile.addEventListener('click', () => {
+        brandTiles.forEach((t) => t.classList.remove('selected'));
+        tile.classList.add('selected');
+        selectedBrandValue = tile.dataset.brand;
+        const label = tile.dataset.label;
+        selectedBrandPill.textContent = `${label} seçildi`;
+        continueBtn.disabled = false;
+        brandInput.value = selectedBrandValue;
+        currentBrandLabel.textContent = label;
+      });
+    });
+
+    continueBtn.addEventListener('click', () => {
+      if (!selectedBrandValue) {
+        return;
+      }
+      setStep('form');
+    });
+
+    changeBrandBtn.addEventListener('click', () => {
+      setStep('brand');
+    });
 
     function getSourceType() {
       const checked = document.querySelector('input[name="sourceType"]:checked');
@@ -325,6 +762,7 @@
       resultEl.textContent = '';
 
       const brand = document.getElementById('brand').value;
+      const brand = brandInput.value;
       const type = document.getElementById('type').value;
       const sourceType = getSourceType();
       const sourceUrl = document.getElementById('sourceUrl').value.trim();
@@ -332,6 +770,13 @@
       const fileNameInput = document.getElementById('fileName').value.trim();
 
       // Basit validasyon
+      if (!brand) {
+        statusEl.textContent = 'Lütfen önce bir marka seç ve devam et.';
+        statusEl.classList.add('error');
+        setStep('brand');
+        return;
+      }
+
       if (sourceType === 'url' && !sourceUrl) {
         statusEl.textContent = 'Lütfen geçerli bir kaynak URL gir.';
         statusEl.classList.add('error');
@@ -360,6 +805,7 @@
           reader.onload = async () => {
             try {
               const result = reader.result; // "data:<mime>;base64,xxxx"
+              const result = reader.result;
               const [meta, base64] = result.split(',');
               const fileMimeType = file.type || 'application/octet-stream';
               const finalFileName = fileNameInput || file.name || `${brand}_${Date.now()}`;
@@ -379,6 +825,7 @@
               if (!res.ok || !json.ok) {
                 statusEl.textContent =
                   'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
+                statusEl.textContent = 'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
                 statusEl.classList.add('error');
               } else {
                 statusEl.textContent = 'Yükleme başarılı ✔️';
@@ -417,6 +864,7 @@
           if (!res.ok || !json.ok) {
             statusEl.textContent =
               'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
+            statusEl.textContent = 'Hata oluştu: ' + (json.error || ('HTTP ' + res.status));
             statusEl.classList.add('error');
           } else {
             statusEl.textContent = 'Yükleme başarılı ✔️';
