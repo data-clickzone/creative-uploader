@@ -13,7 +13,6 @@
       --border: #e2e8f0;
       --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 
-      /* Clickzone hissi */
       --accent: #10b981;
       --accent2:#34d399;
       --danger:#dc2626;
@@ -42,7 +41,6 @@
       overflow: hidden;
     }
 
-    /* üstte hafif yeşil gradient band */
     .topband{
       margin: -22px -26px 18px;
       padding: 16px 26px;
@@ -53,7 +51,6 @@
       justify-content:space-between;
       gap: 10px;
     }
-
     .topband .left{
       display:flex; align-items:center; gap: 12px;
       min-width: 0;
@@ -66,9 +63,7 @@
       display:flex; align-items:center; justify-content:center;
       flex: 0 0 auto;
     }
-    .headline{
-      min-width: 0;
-    }
+    .headline{ min-width: 0; }
     h1 {
       margin: 0;
       font-size: 18px;
@@ -82,18 +77,29 @@
       line-height: 1.35;
     }
 
-    /* Marka adı (isteğin: sadece marka adı yazsın) */
+    .step-card{
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px;
+      background:#fff;
+      box-shadow: 0 6px 18px rgba(15,23,42,.05);
+    }
+
+    /* Seçim sonrası bu kart "kilitli" görünür (Meta review için bile tek marka hissi verir) */
+    .step-locked{
+      opacity: .55;
+      pointer-events: none;
+      filter: grayscale(.15);
+    }
+
+    /* Form üstünde SADECE marka adı */
     .brand-header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
       padding: 14px 16px;
       border: 1px solid var(--border);
       border-radius: var(--r);
       background: #fff;
       box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
-      margin: 14px 0 18px;
+      margin: 18px 0 14px;
     }
     .brand-title{
       font-weight: 900;
@@ -236,15 +242,6 @@
 
     .hidden { display: none; }
 
-    /* STEP-1 kartı */
-    .step-card{
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 16px;
-      background:#fff;
-      box-shadow: 0 6px 18px rgba(15,23,42,.05);
-    }
-
     @media (max-width: 600px) {
       .container { margin: 16px; padding: 18px 16px 22px; }
       .topband{ margin: -18px -16px 16px; padding: 14px 16px; }
@@ -261,11 +258,12 @@
         <div class="headline">
           <h1>Creative Uploader</h1>
           <p class="subtitle">
-            Önce markayı seç. Ardından görsel/video kaynağını gir veya dosya seç; hem Meta’ya yükleyelim hem de Drive’a kopyalayalım.
+            Marka seç → kaynak belirle → Meta + Drive yükle.
           </p>
         </div>
       </div>
-      <button type="button" class="ghost" id="resetBrandBtn">Sıfırla</button>
+      <!-- Meta review için marka değiştirme hissi yok: sadece genel sıfırla -->
+      <button type="button" class="ghost" id="resetAllBtn">Sıfırla</button>
     </div>
 
     <!-- STEP 1: Sadece Marka seçimi -->
@@ -277,7 +275,7 @@
           <option value="bella">Bella Maison</option>
           <option value="desa">DESA</option>
         </select>
-        <div class="helper">Backend’de <code>BRAND_CONFIG</code> ile eşleşiyor.</div>
+        <div class="helper">Not: Meta incelemesi için marka seçildikten sonra arayüz tek marka odaklı görünür.</div>
       </div>
 
       <div class="btnrow">
@@ -285,13 +283,11 @@
       </div>
     </div>
 
-    <!-- STEP 2: Marka seçilince açılan içerik -->
+    <!-- STEP 2: Marka seçilince aşağıda açılan içerik -->
     <div id="mainStep" class="hidden">
-
       <!-- ÜSTTE SADECE MARKA ADI -->
-      <div class="brand-header">
+      <div class="brand-header" id="brandHeader">
         <div class="brand-title" id="brandTitle">—</div>
-        <button type="button" class="ghost" id="changeBrandBtn">Markayı Değiştir</button>
       </div>
 
       <form id="uploadForm">
@@ -329,12 +325,7 @@
         <!-- URL alanı -->
         <div class="field" id="field-source-url">
           <label for="sourceUrl">Kaynak URL</label>
-          <input
-            type="text"
-            id="sourceUrl"
-            name="sourceUrl"
-            placeholder="https://cdn.siten.com/path/to/file.jpg"
-          />
+          <input type="text" id="sourceUrl" name="sourceUrl" placeholder="https://cdn.siten.com/path/to/file.jpg" />
           <div class="helper">
             CDN / web site URL’si. Backend bu dosyayı indirip hem Meta’ya hem Drive’a gönderecek.
           </div>
@@ -343,26 +334,16 @@
         <!-- Bilgisayardan upload alanı -->
         <div class="field hidden" id="field-file-upload">
           <label for="fileInput">Bilgisayardan dosya seç</label>
-          <input
-            type="file"
-            id="fileInput"
-            name="fileInput"
-            accept="image/*,video/*"
-          />
+          <input type="file" id="fileInput" name="fileInput" accept="image/*,video/*" />
           <div class="helper">
-            Görsel veya video dosyası seçebilirsin. Boyutu çok büyük dosyalarda ilk etapta test amaçlı daha küçük dosya kullanman daha sağlıklı olur.
+            Büyük dosyalarda test için daha küçük dosya ile denemek iyi olur.
           </div>
         </div>
 
         <!-- Google Drive URL alanı -->
         <div class="field hidden" id="field-drive-url">
           <label for="driveUrl">Google Drive URL</label>
-          <input
-            type="text"
-            id="driveUrl"
-            name="driveUrl"
-            placeholder="https://drive.google.com/file/d/..."
-          />
+          <input type="text" id="driveUrl" name="driveUrl" placeholder="https://drive.google.com/file/d/..." />
           <div class="helper">
             Paylaşıma açık bir Google Drive dosya linki gir. Backend bu URL üzerinden indirip işlem yapar.
           </div>
@@ -370,19 +351,7 @@
 
         <div class="field">
           <label for="fileName">Dosya adı (opsiyonel)</label>
-          <input
-            type="text"
-            id="fileName"
-            name="fileName"
-            placeholder="BM_SS24_Look1_Story.jpg"
-          />
-          <div class="helper">
-            Boş bırakırsan:
-            <ul style="margin: 6px 0 0 16px; padding-left: 0; font-size: 12px; color:#94a3b8;">
-              <li>URL / Drive için: <code>brand_timestamp.ext</code></li>
-              <li>Bilgisayar yüklemesinde: Seçtiğin dosya adını kullanır.</li>
-            </ul>
-          </div>
+          <input type="text" id="fileName" name="fileName" placeholder="BM_SS24_Look1_Story.jpg" />
         </div>
 
         <div class="btnrow">
@@ -393,7 +362,6 @@
           <div class="tag">Meta Ads API</div>
           <div class="tag">Google Drive API</div>
           <div class="tag">URL / Local / Drive</div>
-          <div class="tag">DESA / Bella Maison</div>
         </div>
 
         <div id="status" class="status"></div>
@@ -407,10 +375,10 @@
     const brandStep = document.getElementById('brandStep');
     const mainStep = document.getElementById('mainStep');
     const brandTitle = document.getElementById('brandTitle');
+    const brandHeader = document.getElementById('brandHeader');
 
     const continueBtn = document.getElementById('continueBtn');
-    const changeBrandBtn = document.getElementById('changeBrandBtn');
-    const resetBrandBtn = document.getElementById('resetBrandBtn');
+    const resetAllBtn = document.getElementById('resetAllBtn');
 
     const form = document.getElementById('uploadForm');
     const statusEl = document.getElementById('status');
@@ -428,44 +396,6 @@
       return '—';
     }
 
-    function enterMain(){
-      const v = brandSelect.value;
-      if (!v) {
-        alert('Lütfen önce marka seç.');
-        return;
-      }
-      brandTitle.textContent = brandLabel(v);
-      brandStep.classList.add('hidden');
-      mainStep.classList.remove('hidden');
-    }
-
-    function backToBrand(){
-      mainStep.classList.add('hidden');
-      brandStep.classList.remove('hidden');
-
-      // İstersen marka değiştirirken status/sonuç temizleyelim:
-      statusEl.textContent = '';
-      statusEl.className = 'status';
-      resultEl.style.display = 'none';
-      resultEl.textContent = '';
-    }
-
-    continueBtn.addEventListener('click', enterMain);
-    changeBrandBtn.addEventListener('click', backToBrand);
-
-    resetBrandBtn.addEventListener('click', () => {
-      brandSelect.value = '';
-      backToBrand();
-      // form alanlarını da sıfırlayalım:
-      document.getElementById('type').value = 'image';
-      document.querySelector('input[name="sourceType"][value="url"]').checked = true;
-      document.getElementById('sourceUrl').value = '';
-      document.getElementById('driveUrl').value = '';
-      document.getElementById('fileName').value = '';
-      fileInput.value = '';
-      updateSourceFields();
-    });
-
     function getSourceType() {
       const checked = document.querySelector('input[name="sourceType"]:checked');
       return checked ? checked.value : 'url';
@@ -482,6 +412,49 @@
       el.addEventListener('change', updateSourceFields);
     });
     updateSourceFields();
+
+    // Marka seçince: marka step kilitlenir + form açılır + aşağı scroll
+    continueBtn.addEventListener('click', () => {
+      const v = brandSelect.value;
+      if (!v) { alert('Lütfen önce marka seç.'); return; }
+
+      brandTitle.textContent = brandLabel(v);
+
+      // Meta review: marka seçimi artık "değiştirilebilir" gibi görünmesin
+      brandStep.classList.add('step-locked');
+
+      // form alanlarını aç
+      mainStep.classList.remove('hidden');
+
+      // aşağı doğru kaydır
+      setTimeout(() => {
+        brandHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+
+    // Tam sıfırlama: marka dahil her şeyi resetle (UI'da "switch" hissi yok)
+    resetAllBtn.addEventListener('click', () => {
+      brandSelect.value = '';
+      brandTitle.textContent = '—';
+
+      brandStep.classList.remove('step-locked');
+      mainStep.classList.add('hidden');
+
+      statusEl.textContent = '';
+      statusEl.className = 'status';
+      resultEl.style.display = 'none';
+      resultEl.textContent = '';
+
+      document.getElementById('type').value = 'image';
+      document.querySelector('input[name="sourceType"][value="url"]').checked = true;
+      document.getElementById('sourceUrl').value = '';
+      document.getElementById('driveUrl').value = '';
+      document.getElementById('fileName').value = '';
+      fileInput.value = '';
+      updateSourceFields();
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
     async function callApi(payload) {
       const res = await fetch('/api/upload-creative', {
@@ -501,7 +474,6 @@
       resultEl.style.display = 'none';
       resultEl.textContent = '';
 
-      // Brand artık STEP-1’den geliyor, ama aynı select üzerinden okunuyor:
       const brand = brandSelect.value;
       const type = document.getElementById('type').value;
       const sourceType = getSourceType();
@@ -509,13 +481,13 @@
       const driveUrl = document.getElementById('driveUrl').value.trim();
       const fileNameInput = document.getElementById('fileName').value.trim();
 
-      // Basit validasyon
       if (!brand) {
         statusEl.textContent = 'Lütfen marka seç.';
         statusEl.classList.add('error');
-        backToBrand();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
+
       if (sourceType === 'url' && !sourceUrl) {
         statusEl.textContent = 'Lütfen geçerli bir kaynak URL gir.';
         statusEl.classList.add('error');
@@ -538,20 +510,17 @@
       try {
         if (sourceType === 'upload') {
           const file = fileInput.files[0];
-
-          // Dosyayı base64'e çevir
           const reader = new FileReader();
+
           reader.onload = async () => {
             try {
-              const result = reader.result; // "data:<mime>;base64,xxxx"
-              const [meta, base64] = result.split(',');
+              const result = reader.result;
+              const [, base64] = result.split(',');
               const fileMimeType = file.type || 'application/octet-stream';
               const finalFileName = fileNameInput || file.name || `${brand}_${Date.now()}`;
 
               const payload = {
-                brand,
-                type,
-                sourceType,
+                brand, type, sourceType,
                 fileName: finalFileName,
                 fileBase64: base64,
                 fileMimeType,
@@ -586,7 +555,6 @@
 
           reader.readAsDataURL(file);
         } else {
-          // URL veya Drive URL senaryosu
           const payload = { brand, type, sourceType };
           if (fileNameInput) payload.fileName = fileNameInput;
           if (sourceType === 'url') payload.sourceUrl = sourceUrl;
